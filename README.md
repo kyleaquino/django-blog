@@ -4,18 +4,26 @@ A RESTful API for a blogging platform built with Django and Django REST Framewor
 
 ## Features
 
-- **Blog Posts Management**: Full CRUD operations for blog posts
+- **Blog Posts Management**: Full CRUD operations for blog posts (Create, Read, Update, Delete)
 - **Comments System**: Create, read, and delete comments on posts
-- **RESTful Design**: Well-structured API following REST principles
-- **No Authentication Required**: Open API for easy interaction
-- **Comprehensive Testing**: Unit tests covering critical functionality
+- **RESTful Design**: Well-structured API following REST principles using Django REST Framework ViewSets
+- **No Authentication Required**: Open API for easy interaction (AllowAny permissions)
+- **Pagination**: Built-in pagination support (10 items per page)
+- **Different Serializers**: Optimized serializers for list vs detail views (list excludes timestamps)
+- **Comprehensive Testing**: Extensive unit tests covering all endpoints and edge cases
+- **Admin Interface**: Django admin integration for managing posts and comments
+- **Code Quality Tools**: Pre-configured with ruff and pre-commit hooks
+- **Development Scripts**: Utility script for initializing development data with sample posts and comments
 
 ## Technologies Used
 
 - Python 3.13+
 - Django 6.0+
 - Django REST Framework 3.16.1+
+- SQLite3 (default database)
 - uv (for dependency management)
+- ruff (code linting and formatting)
+- pre-commit (git hooks for code quality)
 
 ## Project Setup
 
@@ -53,6 +61,22 @@ A RESTful API for a blogging platform built with Django and Django REST Framewor
    python manage.py createsuperuser
    ```
 
+   Alternatively, you can use the initialization script which creates a superuser and sample data:
+
+   ```bash
+   python -m scripts.init_dev_data
+   ```
+
+   This script creates:
+   - A superuser (default: username `admin`, password `admin`, email `admin@example.com`)
+   - 5 sample blog posts with content
+   - Multiple comments on the posts
+
+   You can customize the superuser credentials using environment variables:
+   - `DJANGO_SUPERUSER_USERNAME` (default: `admin`)
+   - `DJANGO_SUPERUSER_EMAIL` (default: `admin@example.com`)
+   - `DJANGO_SUPERUSER_PASSWORD` (default: `admin`)
+
 5. **Run the development server**
 
    ```bash
@@ -83,8 +107,11 @@ The API will be available at `http://127.0.0.1:8000/`
 #### List All Posts
 
 - **GET** `/api/posts/`
-- **Response:** List of all posts with fields: `id`, `title`, `content`, `author`
-- **Note:** Supports pagination
+- **Response:** Paginated list of all posts with fields: `id`, `title`, `content`, `author`
+- **Note:**
+  - Supports pagination (10 posts per page by default)
+  - List view uses a simplified serializer (does not include `created_at` or `updated_at`)
+  - Posts are ordered by creation date (newest first)
 
 #### Get Post Details
 
@@ -93,7 +120,8 @@ The API will be available at `http://127.0.0.1:8000/`
 
 #### Update a Post
 
-- **PUT** `/api/posts/{id}/`
+- **PUT** `/api/posts/{id}/` - Full update (requires all fields)
+- **PATCH** `/api/posts/{id}/` - Partial update (only send fields to update)
 - **Request Body:**
 
   ```json
@@ -148,19 +176,23 @@ The API will be available at `http://127.0.0.1:8000/`
 
 ### Post Model
 
-- `title` (CharField)
+- `id` (AutoField, primary key)
+- `title` (CharField, max_length=200)
 - `content` (TextField)
 - `created_at` (DateTimeField, auto_now_add)
 - `updated_at` (DateTimeField, auto_now)
-- `author` (CharField)
+- `author` (CharField, max_length=100)
+- **Ordering:** Posts are ordered by `-created_at` (newest first)
 
 ### Comment Model
 
+- `id` (AutoField, primary key)
+- `post` (ForeignKey to Post, CASCADE delete, related_name="comments")
 - `content` (TextField)
 - `created_at` (DateTimeField, auto_now_add)
 - `updated_at` (DateTimeField, auto_now)
-- `post` (ForeignKey to Post)
-- `author` (CharField)
+- `author` (CharField, max_length=100)
+- **Ordering:** Comments are ordered by `created_at` (oldest first)
 
 ## Testing
 
@@ -172,11 +204,24 @@ python manage.py test
 
 The test suite covers:
 
-- Creating posts via API
-- Listing posts
-- Creating comments
-- Permissions (ensuring users can update/delete any post/comment)
-- Pagination functionality
+- Creating posts via API (including validation)
+- Creating posts with missing required fields (validation errors)
+- Listing posts (with pagination)
+- Retrieving post details
+- Updating posts (full PUT and partial PATCH)
+- Deleting posts
+- Error handling (404 for non-existent posts)
+- Creating comments (including validation)
+- Creating comments with missing required fields
+- Creating comments for non-existent posts (404 error)
+- Listing comments for a post (only comments for that post)
+- Listing comments for posts with no comments (empty list)
+- Retrieving comment details
+- Deleting comments
+- Error handling (404 for non-existent comments)
+- Comment validation (ensuring comments belong to correct post)
+- Pagination functionality (10 items per page)
+- Different serializers for list vs detail views (list excludes timestamps)
 
 ## Project Structure
 
@@ -184,18 +229,30 @@ The test suite covers:
 django-blog/
 ├── manage.py
 ├── pyproject.toml
+├── Makefile
 ├── README.md
-└── <project_name>/
+├── .pre-commit-config.yaml
+├── db.sqlite3
+├── uv.lock
+├── config/              # Django project settings
+│   ├── __init__.py
+│   ├── settings.py
+│   ├── urls.py
+│   ├── wsgi.py
+│   └── asgi.py
+├── blog/                # Blog app
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── models.py
+│   ├── serializers.py
+│   ├── views.py
+│   ├── urls.py
+│   ├── tests.py
+│   └── migrations/
+└── scripts/              # Utility scripts
     ├── __init__.py
-    ├── settings.py
-    ├── urls.py
-    └── wsgi.py
-└── <app_name>/
-    ├── models.py
-    ├── serializers.py
-    ├── views.py
-    ├── urls.py
-    └── tests.py
+    └── init_dev_data.py  # Script to initialize development data
 ```
 
 ## API Usage Examples
@@ -216,6 +273,22 @@ curl -X POST http://127.0.0.1:8000/api/posts/ \
 curl http://127.0.0.1:8000/api/posts/
 ```
 
+**Update a post (full update):**
+
+```bash
+curl -X PUT http://127.0.0.1:8000/api/posts/1/ \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Updated Post", "content": "Updated content", "author": "John Doe"}'
+```
+
+**Partially update a post:**
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/posts/1/ \
+  -H "Content-Type: application/json" \
+  -d '{"title": "New Title Only"}'
+```
+
 **Create a comment:**
 
 ```bash
@@ -229,20 +302,47 @@ curl -X POST http://127.0.0.1:8000/api/posts/1/comments/ \
 ```python
 import requests
 
+BASE_URL = 'http://127.0.0.1:8000/api'
+
 # Create a post
-response = requests.post('http://127.0.0.1:8000/api/posts/', json={
+response = requests.post(f'{BASE_URL}/posts/', json={
     'title': 'My Post',
     'content': 'Post content',
     'author': 'John Doe'
 })
 print(response.json())
 
-# Get all posts
-response = requests.get('http://127.0.0.1:8000/api/posts/')
+# Get all posts (paginated)
+response = requests.get(f'{BASE_URL}/posts/')
+print(response.json())  # Returns {'count': ..., 'next': ..., 'previous': ..., 'results': [...]}
+
+# Get post details
+response = requests.get(f'{BASE_URL}/posts/1/')
+print(response.json())
+
+# Update a post (partial)
+response = requests.patch(f'{BASE_URL}/posts/1/', json={
+    'title': 'Updated Title'
+})
+print(response.json())
+
+# Create a comment
+response = requests.post(f'{BASE_URL}/posts/1/comments/', json={
+    'content': 'Great post!',
+    'author': 'Jane Doe'
+})
+print(response.json())
+
+# List comments for a post
+response = requests.get(f'{BASE_URL}/posts/1/comments/')
 print(response.json())
 ```
 
 ## Development
+
+### Database
+
+The project uses SQLite3 as the default database (`db.sqlite3`). The database file is created automatically when you run migrations.
 
 ### Running Migrations
 
@@ -253,10 +353,92 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
+Or use the Makefile shortcut:
+
+```bash
+make setup-db
+```
+
+### Initializing Development Data
+
+To populate the database with sample data (superuser, posts, and comments):
+
+```bash
+python -m scripts.init_dev_data
+```
+
+This script:
+
+- Creates a superuser (customizable via environment variables)
+- Creates 5 sample blog posts with detailed content
+- Creates multiple comments on the posts
+- Prints a summary of created data
+
+The script is idempotent - running it multiple times won't create duplicate data.
+
+### Running the Server
+
+Start the development server:
+
+```bash
+python manage.py runserver
+```
+
+Or use the Makefile shortcut:
+
+```bash
+make run
+```
+
+This will start the server on `0.0.0.0:8000` (accessible from all network interfaces).
+
+### Code Quality
+
+The project uses `ruff` for linting and formatting, and `pre-commit` for git hooks.
+
+**Run linting and formatting:**
+
+```bash
+make run-ruff
+```
+
+This runs `ruff check` and `ruff format` on the codebase.
+
+**Run pre-commit checks:**
+
+```bash
+make run-pre-commit
+```
+
+Or manually:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+**Pre-commit hooks configured:**
+
+- `check-added-large-files` - Prevents committing large files
+- `check-case-conflict` - Detects case conflicts in filenames
+- `check-toml` - Validates TOML files
+- `debug-statements` - Checks for debugger statements
+- `end-of-file-fixer` - Ensures files end with a newline
+- `mixed-line-ending` - Fixes line endings (LF)
+- `trailing-whitespace` - Removes trailing whitespace
+- `ruff` - Runs ruff linter with auto-fix
+- `ruff-format` - Formats code with ruff
+
+**Note:** Pre-commit hooks automatically exclude `scripts/`, `migrations/`, `__init__.py`, and `.venv/` directories from ruff checks.
+
 ### Accessing Django Admin
 
 If you created a superuser, access the admin panel at:
 `http://127.0.0.1:8000/admin/`
+
+The admin interface includes:
+
+- Post management with filtering by date and search functionality
+- Comment management with filtering and search
 
 ## Evaluation Criteria
 
@@ -266,11 +448,3 @@ This project demonstrates:
 - ✅ **Django REST Framework**: Effective use of serializers and views
 - ✅ **Testing**: Comprehensive unit tests covering critical functionality
 - ✅ **Clean Code**: Well-organized, readable, and maintainable codebase
-
-## License
-
-This project is part of a coding challenge.
-
-## Contributing
-
-This is a challenge project. For questions or issues, please refer to the challenge documentation.
