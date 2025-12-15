@@ -1,9 +1,10 @@
-from rest_framework import viewsets, status
+from django.shortcuts import get_object_or_404
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-from .models import Post, Comment
-from .serializers import PostSerializer, PostListSerializer, CommentSerializer
+
+from .models import Comment, Post
+from .serializers import CommentSerializer, PostListSerializer, PostSerializer
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -35,7 +36,7 @@ class PostViewSet(viewsets.ModelViewSet):
             serializer = CommentSerializer(comments, many=True)
             return Response(serializer.data)
 
-        elif request.method == "POST":
+        if request.method == "POST":
             serializer = CommentSerializer(data=request.data)
             if serializer.is_valid():
                 serializer.save(post=post)
@@ -61,6 +62,6 @@ class PostViewSet(viewsets.ModelViewSet):
             serializer = CommentSerializer(comment)
             return Response(serializer.data)
 
-        elif request.method == "DELETE":
+        if request.method == "DELETE":
             comment.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)

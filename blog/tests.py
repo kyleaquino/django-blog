@@ -1,8 +1,9 @@
 from django.test import TestCase
 from django.urls import reverse
-from rest_framework.test import APITestCase
 from rest_framework import status
-from .models import Post, Comment
+from rest_framework.test import APITestCase
+
+from .models import Comment, Post
 
 
 class PostAPITestCase(APITestCase):
