@@ -8,3 +8,26 @@ dependencies = [
     "django>=6.0",
     "djangorestframework>=3.16.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.0",
+    "ruff>=0.14.9",
+]
+
+[tool.ruff]
+exclude = [ ".direnv", ".git", ".git-rewrite", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", ".vscode", "node_modules", "migrations",]
+line-length = 120
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [ "E401", "E501", "F401", "ISC001", "D203", "D213", "TRY003", "RUF012", "PT011", "RET503",]
+select = [ "F", "E", "W", "C", "N", "R", "I",]
+fixable = [ "ALL",]
+extend-select = [ "I",]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [ "D", "ANN",]
+"__init__.py" = [ "D",]
